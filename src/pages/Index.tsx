@@ -6,58 +6,74 @@ import ToggleSwitch from '@/components/ToggleSwitch';
 import ProcessButton from '@/components/ProcessButton';
 import ResultsTable, { WalletResult } from '@/components/ResultsTable';
 
-const MOCK_RESULTS: WalletResult[] = [
-  { id: 1, seed: 'apple banana cherry dog elephant fox grape horse ice jazz kite lemon', ethAddress: '0x742d35Cc6634C0532925a3b844Bc9e7595f2bD68', ethBalance: 2.4531, trxAddress: 'TN3W4H6rK2ce4vX9YnFQHwKENnHjoxb3m9', trxBalance: 15420, usdtBalance: 3200, status: 'success' },
-  { id: 2, seed: 'mango night ocean palm queen river snow tiger umbrella violet wolf xray', ethAddress: '0x1234567890abcdef1234567890abcdef12345678', ethBalance: 0, trxAddress: 'TAahRF4Gv2Mk4ZFMYeyzJ3u2BPPaksc4Nq', trxBalance: 0, usdtBalance: 0, status: 'success' },
-  { id: 3, seed: 'abandon ability able about above absent absorb abstract absurd abuse access accident', ethAddress: '0xde0B295669a9FD93d5F28D9Ec85E40f4cb697BAe', ethBalance: 0.0042, trxAddress: 'TJCnKsPa7y5okkXvQAidZBzqx3QyQ6sxMW', trxBalance: 89200, usdtBalance: 8500, status: 'success' },
-  { id: 4, seed: 'zoo yield year worth worry wrap wrestle write wrong xerox yawn yield', ethAddress: '0x00000000000000000000000000000000deadbeef', ethBalance: 0, trxAddress: 'T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb', trxBalance: 0, usdtBalance: 0, status: 'error' },
-];
-
 const Index = () => {
   const [seeds, setSeeds] = useState('');
+  
   const [deriveEth, setDeriveEth] = useState(true);
+  const [deriveBnb, setDeriveBnb] = useState(true);
   const [deriveTrx, setDeriveTrx] = useState(true);
+  const [deriveBtc, setDeriveBtc] = useState(true);
+  const [deriveSol, setDeriveSol] = useState(true); // Solana added!
+  
   const [fetchBalances, setFetchBalances] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState<WalletResult[]>([]);
 
-  const handleProcess = () => {
+  const handleProcess = async () => {
     if (!seeds.trim()) return;
     setIsProcessing(true);
-    setTimeout(() => {
-      setResults(MOCK_RESULTS);
-      setIsProcessing(false);
-    }, 2000);
+    setResults([]); 
+    
+    const seedArray = seeds.split('\n').map(s => s.trim().replace(/\s+/g, ' ')).filter(s => s.length > 0);
+
+    const chains = [];
+    if (deriveEth) chains.push('eth');
+    if (deriveBnb) chains.push('bnb');
+    if (deriveTrx) chains.push('trx');
+    if (deriveBtc) chains.push('btc');
+    if (deriveSol) chains.push('sol');
+
+    for (let i = 0; i < seedArray.length; i++) {
+        const currentSeed = seedArray[i];
+
+        try {
+            const response = await fetch('http://localhost:3000/api/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ seeds: [currentSeed], chains, fetchBalances })
+            });
+
+            const data = await response.json();
+            if (data.results) {
+                const newResult = data.results[0];
+                newResult.id = i + 1; 
+                newResult.rawResponse = JSON.stringify(newResult, null, 2);
+                setResults(prev => [...prev, newResult]);
+            }
+        } catch (error: any) {
+            setResults(prev => [...prev, { id: i + 1, seed: currentSeed, status: 'error', rawResponse: error.toString(), addresses: {}, allAssets: [] }]);
+        }
+    }
+    setIsProcessing(false);
   };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border">
         <div className="container mx-auto flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary/10 p-2">
-              <Shield size={22} className="text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight text-foreground">Nexus Wallet</h1>
-              <p className="text-xs text-muted-foreground">Bulk Checker</p>
-            </div>
+            <div className="rounded-lg bg-primary/10 p-2"><Shield size={22} className="text-primary" /></div>
+            <div><h1 className="text-lg font-bold tracking-tight text-foreground">Nexus Wallet</h1><p className="text-xs text-muted-foreground">God-Mode Scanner</p></div>
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Activity size={14} className="text-success animate-pulse-glow" />
-            <span>API Connected</span>
+            <Activity size={14} className="text-success animate-pulse-glow" /><span>APIs Connected</span>
           </div>
         </div>
       </header>
 
       <main className="container mx-auto px-6 py-6 space-y-6">
-        {/* Stats */}
         <StatsStrip />
-
-        {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Input */}
           <div className="lg:col-span-1 space-y-4">
             <div className="rounded-lg border border-border bg-card p-5">
               <h2 className="text-sm font-semibold text-foreground mb-4">Seed Input</h2>
@@ -66,42 +82,22 @@ const Index = () => {
 
             <div className="rounded-lg border border-border bg-card p-5 space-y-3">
               <h2 className="text-sm font-semibold text-foreground mb-1">Configuration</h2>
-              <ToggleSwitch
-                label="Derive ETH Addresses"
-                description="Ethereum mainnet"
-                checked={deriveEth}
-                onChange={setDeriveEth}
-              />
-              <ToggleSwitch
-                label="Derive TRX Addresses"
-                description="TRON network"
-                checked={deriveTrx}
-                onChange={setDeriveTrx}
-              />
-              <ToggleSwitch
-                label="Fetch Live Balances"
-                description="Query blockchain APIs"
-                checked={fetchBalances}
-                onChange={setFetchBalances}
-              />
+              <ToggleSwitch label="Ethereum (ETH)" description="EVM Native & Tokens" checked={deriveEth} onChange={setDeriveEth} />
+              <ToggleSwitch label="Binance (BNB)" description="BSC Native & Tokens" checked={deriveBnb} onChange={setDeriveBnb} />
+              <ToggleSwitch label="Bitcoin (BTC)" description="Native Segwit" checked={deriveBtc} onChange={setDeriveBtc} />
+              <ToggleSwitch label="TRON (TRX)" description="Native & USDT" checked={deriveTrx} onChange={setDeriveTrx} />
+              <ToggleSwitch label="Solana (SOL)" description="Native & SPL" checked={deriveSol} onChange={setDeriveSol} />
+              
+              <div className="pt-2 pb-1 border-t border-border mt-3">
+                <ToggleSwitch label="Deep Scan Balances" description="Fetch from Web3 APIs" checked={fetchBalances} onChange={setFetchBalances} />
+              </div>
             </div>
 
-            <ProcessButton
-              onClick={handleProcess}
-              isProcessing={isProcessing}
-              disabled={!seeds.trim()}
-            />
+            <ProcessButton onClick={handleProcess} isProcessing={isProcessing} disabled={!seeds.trim() || isProcessing} />
           </div>
 
-          {/* Right Column - Results */}
           <div className="lg:col-span-2">
             <div className="rounded-lg border border-border bg-card p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-foreground">Results</h2>
-                {results.length > 0 && (
-                  <span className="text-xs text-muted-foreground">{results.length} wallets</span>
-                )}
-              </div>
               <ResultsTable results={results} />
             </div>
           </div>

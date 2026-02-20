@@ -10,6 +10,16 @@ const SeedInput = ({ value, onChange }: SeedInputProps) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
+  // 🚀 SMART FORMATTER: Removes extra spaces and empty lines
+  const cleanUpSeeds = (rawText: string) => {
+    const cleaned = rawText
+      .split('\n')
+      .map(line => line.trim().replace(/\s+/g, ' ')) // Remove double spaces inside phrases
+      .filter(line => line.length > 0) // Remove empty blank lines
+      .join('\n');
+    onChange(cleaned);
+  };
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -18,7 +28,9 @@ const SeedInput = ({ value, onChange }: SeedInputProps) => {
       setFileName(file.name);
       const reader = new FileReader();
       reader.onload = (ev) => {
-        onChange(ev.target?.result as string);
+        // Clean the file content immediately upon drop
+        const rawContent = ev.target?.result as string;
+        cleanUpSeeds(rawContent);
       };
       reader.readAsText(file);
     }
@@ -60,7 +72,8 @@ const SeedInput = ({ value, onChange }: SeedInputProps) => {
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Paste seed phrases here, one per line...&#10;&#10;apple banana cherry dog elephant fox grape horse ice jazz kite lemon&#10;mango night ocean palm queen river snow tiger umbrella violet wolf xray"
+          onBlur={(e) => cleanUpSeeds(e.target.value)} // Auto-format when clicking out of the box!
+          placeholder="Paste seed phrases here, one per line...&#10;&#10;apple banana cherry dog elephant fox grape horse ice jazz kite lemon"
           className="w-full h-48 rounded-lg border border-border bg-secondary/50 px-4 py-3 font-mono text-sm text-foreground placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-primary/50 transition-all"
         />
         {lineCount > 0 && (
